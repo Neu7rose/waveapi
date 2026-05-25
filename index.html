@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wave API — A API de músicas para MTA:SA</title>
+<meta name="theme-color" content="#080B10">
+<title>Wave API — Futuristic Music API for MTA:SA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
@@ -267,7 +270,7 @@
     border: 1px solid var(--border-glass);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 20px 80px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.08);
+    box-shadow: 0 12px 48px rgba(0,0,0,0.45), 0 0 24px rgba(0,212,255,0.08);
   }
   .code-header {
     display: flex;
@@ -950,6 +953,12 @@
     to { opacity: 1; transform: translateY(0); }
   }
   .animate-in { animation: fadeIn 0.7s ease forwards; }
+
+  
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+  }
 
   /* ─── RESPONSIVE ─── */
   @media (max-width: 1024px) {
