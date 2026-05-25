@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave API — A API de músicas para MTA:SA</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --cyan: #00D4FF;
+    --cyan-bright: #00FFFF;
+    --cyan-dark: #00B8D9;
+    --bg-deep: #080B10;
+    --bg-card: #0D1117;
+    --bg-glass: rgba(0,212,255,0.05);
+    --border-glass: rgba(0,212,255,0.15);
+    --white: #FFFFFF;
+    --white-dim: #E8F4F8;
+    --white-muted: rgba(232,244,248,0.6);
+    --glow: 0 0 20px rgba(0,212,255,0.4), 0 0 60px rgba(0,212,255,0.15);
+    --glow-intense: 0 0 30px rgba(0,255,255,0.6), 0 0 80px rgba(0,255,255,0.2);
+    --font-main: 'Space Grotesk', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-main);
+    background: var(--bg-deep);
+    color: var(--white);
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--cyan-dark); border-radius: 2px; }
+
+  /* ─── NAVBAR ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
+    padding: 1.2rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.4s ease;
+  }
+  nav.scrolled {
+    background: rgba(8,11,16,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-glass);
+    padding: 0.9rem 2rem;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: var(--white);
+  }
+  .nav-logo .logo-text span { color: var(--cyan); }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 2.5rem;
+    list-style: none;
+  }
+  .nav-links a {
+    color: var(--white-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--cyan); }
+  .btn-cta {
+    background: linear-gradient(135deg, var(--cyan), var(--cyan-dark));
+    color: var(--bg-deep);
+    padding: 0.55rem 1.4rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 0 20px rgba(0,212,255,0.3);
+  }
+  .btn-cta:hover {
+    box-shadow: var(--glow);
+    transform: translateY(-1px);
+  }
+  .nav-hamburger { display: none; cursor: pointer; }
+
+  /* ─── HERO ─── */
+  #hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    padding: 8rem 2rem 4rem;
+  }
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 100%);
+  }
+  .hero-glow-1 {
+    position: absolute;
+    top: 20%;
+    left: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,212,255,0.12) 0%, transparent 70%);
+    filter: blur(40px);
+    animation: floatGlow 8s ease-in-out infinite;
+  }
+  .hero-glow-2 {
+    position: absolute;
+    bottom: 10%;
+    right: -5%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(0,180,255,0.08) 0%, transparent 70%);
+    filter: blur(60px);
+    animation: floatGlow 10s ease-in-out infinite reverse;
+  }
+  @keyframes floatGlow {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-30px) scale(1.05); }
+  }
+  .hero-content {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    width: 100%;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    padding: 0.4rem 1rem;
+    border-radius: 99px;
+    font-size: 0.82rem;
+    color: var(--cyan);
+    margin-bottom: 1.5rem;
+    animation: badgePulse 3s ease-in-out infinite;
+  }
+  @keyframes badgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,212,255,0.2); }
+    50% { box-shadow: 0 0 0 8px rgba(0,212,255,0); }
+  }
+  .badge-dot {
+    width: 6px; height: 6px;
+    background: var(--cyan-bright);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--cyan-bright);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .hero-title {
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.2rem;
+  }
+  .hero-title .highlight {
+    background: linear-gradient(135deg, var(--cyan), var(--cyan-bright));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: block;
+  }
+  .hero-subtitle {
+    font-size: 1.1rem;
+    color: var(--white-muted);
+    margin-bottom: 2.5rem;
+    max-width: 480px;
+    line-height: 1.7;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--cyan), var(--cyan-dark));
+    color: var(--bg-deep);
+    padding: 0.85rem 2rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 0 30px rgba(0,212,255,0.35);
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary:hover {
+    box-shadow: var(--glow-intense);
+    transform: translateY(-2px);
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--cyan);
+    padding: 0.85rem 2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    border: 1px solid var(--border-glass);
+    transition: all 0.3s;
+    backdrop-filter: blur(10px);
+  }
+  .btn-secondary:hover {
+    background: var(--bg-glass);
+    border-color: var(--cyan);
+    box-shadow: 0 0 20px rgba(0,212,255,0.15);
+  }
+
+  /* ─── CODE MOCK ─── */
+  .hero-code {
+    position: relative;
+  }
+  .code-window {
+    background: #0D1117;
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.08);
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.2rem;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border-glass);
+  }
+  .code-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .code-dot.red { background: #FF5F57; }
+  .code-dot.yellow { background: #FFBD2E; }
+  .code-dot.green { background: #28C840; }
+  .code-title { margin-left: auto; font-size: 0.75rem; color: var(--white-muted); font-family: var(--font-mono); }
+  .code-body {
+    padding: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.8;
+  }
+  .c-comment { color: #6A737D; }
+  .c-keyword { color: #FF7B72; }
+  .c-string { color: #A5D6FF; }
+  .c-func { color: #D2A8FF; }
+  .c-num { color: #79C0FF; }
+  .c-cyan { color: var(--cyan); }
+  .c-green { color: #3FB950; }
+  .c-orange { color: #FFA657; }
+  .c-white { color: var(--white-dim); }
+
+  /* ─── SECTIONS COMMON ─── */
+  section { padding: 6rem 2rem; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .section-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section-label::before {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 2px;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+  }
+  .section-title {
+    font-size: clamp(1.9rem, 4vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+  .section-subtitle {
+    font-size: 1.05rem;
+    color: var(--white-muted);
+    max-width: 560px;
+    line-height: 1.7;
+  }
+
+  /* ─── HOW IT WORKS ─── */
+  #how {
+    background: linear-gradient(180deg, transparent, rgba(0,212,255,0.03), transparent);
+  }
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin-top: 4rem;
+  }
+  .how-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    padding: 2.5rem 2rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s ease;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  .how-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .how-card:hover {
+    border-color: rgba(0,212,255,0.4);
+    box-shadow: 0 0 40px rgba(0,212,255,0.08);
+    transform: translateY(-4px);
+  }
+  .how-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .how-card:hover::before { opacity: 1; }
+  .how-step {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 1.2rem;
+    font-family: var(--font-mono);
+  }
+  .how-icon {
+    width: 64px; height: 64px;
+    margin-bottom: 1.5rem;
+  }
+  .how-card h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+  }
+  .how-card p { color: var(--white-muted); font-size: 0.95rem; line-height: 1.7; }
+
+  /* ─── FEATURES ─── */
+  #features { background: var(--bg-card); }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 4rem;
+  }
+  .feature-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    padding: 2rem;
+    transition: all 0.3s;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .feature-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .feature-card:hover {
+    border-color: rgba(0,212,255,0.35);
+    background: rgba(0,212,255,0.07);
+    box-shadow: 0 8px 40px rgba(0,212,255,0.06);
+  }
+  .feature-icon { width: 48px; height: 48px; margin-bottom: 1.2rem; }
+  .feature-card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .feature-card p { color: var(--white-muted); font-size: 0.88rem; line-height: 1.6; }
+
+  /* ─── DEMO ─── */
+  #demo { background: linear-gradient(180deg, transparent, rgba(0,212,255,0.02), transparent); }
+  .demo-container {
+    max-width: 900px;
+    margin: 4rem auto 0;
+  }
+  .demo-search {
+    display: flex;
+    gap: 0.8rem;
+    margin-bottom: 2rem;
+  }
+  .demo-input-wrap {
+    flex: 1;
+    position: relative;
+  }
+  .demo-input {
+    width: 100%;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    padding: 1rem 1rem 1rem 3rem;
+    color: var(--white);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.3s;
+  }
+  .demo-input:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+  }
+  .demo-input-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--cyan);
+  }
+  .demo-btn {
+    background: linear-gradient(135deg, var(--cyan), var(--cyan-dark));
+    color: var(--bg-deep);
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 0 20px rgba(0,212,255,0.3);
+  }
+  .demo-btn:hover { box-shadow: var(--glow); transform: translateY(-1px); }
+  .demo-results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  .demo-panel {
+    background: #0D1117;
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .demo-panel-header {
+    padding: 0.8rem 1.2rem;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border-glass);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--white-muted);
+  }
+  .demo-panel-header .status-ok {
+    background: rgba(63,185,80,0.15);
+    color: #3FB950;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .demo-panel-body { padding: 1.2rem; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.9; }
+  .link-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    background: rgba(0,212,255,0.05);
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin-top: 0.5rem;
+  }
+  .link-label { font-size: 0.72rem; color: var(--cyan); font-weight: 700; margin-bottom: 0.2rem; }
+  .link-value { font-size: 0.78rem; color: var(--white-dim); font-family: var(--font-mono); word-break: break-all; }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border-glass);
+    border-radius: 6px;
+    padding: 0.3rem 0.7rem;
+    color: var(--cyan);
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-family: var(--font-main);
+  }
+  .copy-btn:hover { background: var(--bg-glass); border-color: var(--cyan); }
+
+  /* ─── DOCS ─── */
+  #docs { background: var(--bg-card); }
+  .docs-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 3rem;
+    margin-top: 4rem;
+  }
+  .docs-nav {
+    position: sticky;
+    top: 6rem;
+    align-self: start;
+  }
+  .docs-nav-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--white-muted); margin-bottom: 1rem; }
+  .docs-nav-list { list-style: none; }
+  .docs-nav-list li { margin-bottom: 0.2rem; }
+  .docs-nav-list a {
+    display: block;
+    color: var(--white-muted);
+    text-decoration: none;
+    font-size: 0.88rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .docs-nav-list a:hover, .docs-nav-list a.active {
+    color: var(--cyan);
+    border-left-color: var(--cyan);
+    background: var(--bg-glass);
+  }
+  .endpoint-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s ease;
+  }
+  .endpoint-card.visible { opacity: 1; transform: translateY(0); }
+  .endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.2rem 1.5rem;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border-glass);
+  }
+  .method-badge {
+    background: rgba(0,212,255,0.15);
+    color: var(--cyan);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.82rem;
+  }
+  .endpoint-path {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: var(--white-dim);
+  }
+  .endpoint-body { padding: 1.5rem; }
+  .endpoint-desc { color: var(--white-muted); margin-bottom: 1.5rem; font-size: 0.93rem; }
+  .params-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 0.85rem; }
+  .params-table th {
+    text-align: left;
+    color: var(--white-muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border-glass);
+  }
+  .params-table td {
+    padding: 0.7rem 0.8rem;
+    border-bottom: 1px solid rgba(0,212,255,0.05);
+    vertical-align: top;
+  }
+  .param-name { font-family: var(--font-mono); color: var(--cyan); font-size: 0.82rem; }
+  .param-type { font-family: var(--font-mono); color: #FFA657; font-size: 0.8rem; }
+  .param-req {
+    background: rgba(255,127,80,0.12);
+    color: #FF7F50;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .param-opt {
+    background: rgba(63,185,80,0.12);
+    color: #3FB950;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .code-tabs {
+    display: flex;
+    gap: 0.3rem;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-glass);
+    padding: 0 1rem;
+    background: rgba(255,255,255,0.02);
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--white-muted);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .code-block {
+    background: #060a0f;
+    padding: 1.2rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.85;
+    overflow-x: auto;
+    display: none;
+  }
+  .code-block.active { display: block; }
+  .response-block {
+    border-top: 1px solid var(--border-glass);
+    margin-top: 1.5rem;
+  }
+  .response-header {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 1rem 1.5rem;
+    background: rgba(255,255,255,0.02);
+    font-size: 0.82rem;
+  }
+  .status-badge {
+    padding: 0.25rem 0.7rem;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.75rem;
+  }
+  .s200 { background: rgba(63,185,80,0.15); color: #3FB950; }
+  .s401 { background: rgba(255,127,80,0.15); color: #FF7F50; }
+  .s429 { background: rgba(255,189,46,0.15); color: #FFBD2E; }
+
+  /* ─── PLANS ─── */
+  #plans { background: linear-gradient(180deg, transparent, rgba(0,212,255,0.02), transparent); }
+  .plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin-top: 4rem;
+    align-items: start;
+  }
+  .plan-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    padding: 2.5rem;
+    position: relative;
+    transition: all 0.3s;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  .plan-card.visible { opacity: 1; transform: translateY(0); }
+  .plan-card.featured {
+    border-color: var(--cyan);
+    box-shadow: 0 0 60px rgba(0,212,255,0.12), inset 0 0 60px rgba(0,212,255,0.03);
+    transform: scale(1.03) translateY(0) !important;
+  }
+  .plan-popular {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, var(--cyan), var(--cyan-dark));
+    color: var(--bg-deep);
+    padding: 0.3rem 1.2rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .plan-name { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); margin-bottom: 0.8rem; }
+  .plan-price { font-size: 3rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.3rem; }
+  .plan-price span { font-size: 1rem; color: var(--white-muted); font-weight: 400; }
+  .plan-desc { color: var(--white-muted); font-size: 0.88rem; margin-bottom: 2rem; }
+  .plan-features { list-style: none; margin-bottom: 2rem; }
+  .plan-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.6rem 0;
+    font-size: 0.9rem;
+    color: var(--white-dim);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .plan-features li .check { color: var(--cyan); font-size: 1rem; flex-shrink: 0; }
+  .plan-btn {
+    width: 100%;
+    padding: 0.9rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+  }
+  .plan-btn-outline {
+    background: transparent;
+    border: 1px solid var(--border-glass);
+    color: var(--white);
+  }
+  .plan-btn-outline:hover { border-color: var(--cyan); color: var(--cyan); }
+  .plan-btn-filled {
+    background: linear-gradient(135deg, var(--cyan), var(--cyan-dark));
+    border: none;
+    color: var(--bg-deep);
+    box-shadow: 0 0 30px rgba(0,212,255,0.3);
+  }
+  .plan-btn-filled:hover { box-shadow: var(--glow); transform: translateY(-2px); }
+
+  /* ─── MTA SECTION ─── */
+  #mta {
+    background: var(--bg-card);
+    overflow: hidden;
+    position: relative;
+  }
+  .mta-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    align-items: center;
+  }
+  .lua-window {
+    background: #0D1117;
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.4), 0 0 40px rgba(0,212,255,0.06);
+  }
+  .lua-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.9rem 1.2rem;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border-glass);
+  }
+  .lua-title { margin-left: auto; font-size: 0.75rem; color: var(--white-muted); font-family: var(--font-mono); }
+  .lua-tag {
+    background: rgba(0,212,255,0.12);
+    color: var(--cyan);
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    margin-left: 0.5rem;
+  }
+  .lua-body { padding: 1.5rem; font-family: var(--font-mono); font-size: 0.82rem; line-height: 2; }
+  .mta-art {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ─── STATS ─── */
+  #stats {
+    background: linear-gradient(135deg, rgba(0,212,255,0.05), transparent, rgba(0,212,255,0.03));
+    border-top: 1px solid var(--border-glass);
+    border-bottom: 1px solid var(--border-glass);
+    padding: 4rem 2rem;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2rem;
+    text-align: center;
+  }
+  .stat-item { padding: 2rem 1rem; }
+  .stat-number {
+    font-size: 3rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--white), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: block;
+  }
+  .stat-label { color: var(--white-muted); font-size: 0.88rem; margin-top: 0.3rem; }
+
+  /* ─── FAQ ─── */
+  #faq { background: var(--bg-deep); }
+  .faq-list { max-width: 760px; margin: 4rem auto 0; }
+  .faq-item {
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    margin-bottom: 0.8rem;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .faq-item:hover { border-color: rgba(0,212,255,0.3); }
+  .faq-item.open { border-color: var(--cyan); }
+  .faq-question {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.3rem 1.5rem;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+    user-select: none;
+    gap: 1rem;
+  }
+  .faq-arrow {
+    width: 24px; height: 24px; flex-shrink: 0;
+    border: 1px solid var(--border-glass);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    color: var(--cyan);
+  }
+  .faq-item.open .faq-arrow { background: var(--cyan); color: var(--bg-deep); transform: rotate(45deg); }
+  .faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.3s;
+    color: var(--white-muted);
+    font-size: 0.92rem;
+    line-height: 1.7;
+  }
+  .faq-answer-inner { padding: 0 1.5rem 1.3rem; }
+
+  /* ─── FOOTER ─── */
+  footer {
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-glass);
+    padding: 4rem 2rem 2rem;
+    position: relative;
+  }
+  footer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.4;
+  }
+  .footer-grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 3rem;
+    margin-bottom: 3rem;
+  }
+  .footer-brand p { color: var(--white-muted); font-size: 0.88rem; margin-top: 1rem; line-height: 1.7; max-width: 280px; }
+  .footer-col h4 { font-size: 0.82rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--white-muted); margin-bottom: 1.2rem; }
+  .footer-col ul { list-style: none; }
+  .footer-col li { margin-bottom: 0.6rem; }
+  .footer-col a { color: rgba(232,244,248,0.5); text-decoration: none; font-size: 0.88rem; transition: color 0.2s; }
+  .footer-col a:hover { color: var(--cyan); }
+  .footer-bottom {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.82rem;
+    color: var(--white-muted);
+  }
+  .social-links { display: flex; gap: 0.8rem; }
+  .social-link {
+    width: 36px; height: 36px;
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    color: var(--white-muted);
+    text-decoration: none;
+  }
+  .social-link:hover { border-color: var(--cyan); color: var(--cyan); background: var(--bg-glass); }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes waveAnim {
+    0% { d: path("M0,50 C150,20 350,80 500,50 C650,20 850,80 1000,50"); }
+    50% { d: path("M0,50 C150,80 350,20 500,50 C650,80 850,20 1000,50"); }
+    100% { d: path("M0,50 C150,20 350,80 500,50 C650,20 850,80 1000,50"); }
+  }
+  @keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-in { animation: fadeIn 0.7s ease forwards; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 1024px) {
+    .hero-content { grid-template-columns: 1fr; gap: 3rem; }
+    .hero-code { order: -1; }
+    .docs-layout { grid-template-columns: 1fr; }
+    .docs-nav { display: none; }
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+    .mta-content { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .how-grid, .features-grid, .plans-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .nav-links { display: none; }
+    .nav-hamburger { display: block; }
+    .demo-results { grid-template-columns: 1fr; }
+    .plan-card.featured { transform: scale(1) !important; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .footer-bottom { flex-direction: column; gap: 1rem; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ NAVBAR ═══ -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">
+    <svg class="logo-icon" width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="36" height="36" rx="10" fill="rgba(0,212,255,0.1)" stroke="rgba(0,212,255,0.3)" stroke-width="1"/>
+      <g transform="translate(4, 8)">
+        <rect x="0" y="7" width="3" height="10" rx="1.5" fill="#00D4FF" opacity="0.5">
+          <animate attributeName="height" values="6;14;6" dur="1.8s" repeatCount="indefinite" begin="0s"/>
+          <animate attributeName="y" values="10;5;10" dur="1.8s" repeatCount="indefinite" begin="0s"/>
+        </rect>
+        <rect x="5" y="3" width="3" height="18" rx="1.5" fill="#00D4FF" opacity="0.75">
+          <animate attributeName="height" values="10;20;10" dur="1.8s" repeatCount="indefinite" begin="0.3s"/>
+          <animate attributeName="y" values="8;2;8" dur="1.8s" repeatCount="indefinite" begin="0.3s"/>
+        </rect>
+        <rect x="10" y="1" width="3" height="22" rx="1.5" fill="#00FFFF">
+          <animate attributeName="height" values="14;24;14" dur="1.8s" repeatCount="indefinite" begin="0.1s"/>
+          <animate attributeName="y" values="7;0;7" dur="1.8s" repeatCount="indefinite" begin="0.1s"/>
+        </rect>
+        <rect x="15" y="3" width="3" height="18" rx="1.5" fill="#00D4FF" opacity="0.75">
+          <animate attributeName="height" values="12;22;12" dur="1.8s" repeatCount="indefinite" begin="0.4s"/>
+          <animate attributeName="y" values="6;1;6" dur="1.8s" repeatCount="indefinite" begin="0.4s"/>
+        </rect>
+        <rect x="20" y="7" width="3" height="10" rx="1.5" fill="#00D4FF" opacity="0.5">
+          <animate attributeName="height" values="6;16;6" dur="1.8s" repeatCount="indefinite" begin="0.2s"/>
+          <animate attributeName="y" values="10;4;10" dur="1.8s" repeatCount="indefinite" begin="0.2s"/>
+        </rect>
+        <rect x="25" y="10" width="3" height="4" rx="1.5" fill="#00D4FF" opacity="0.35">
+          <animate attributeName="height" values="4;10;4" dur="1.8s" repeatCount="indefinite" begin="0.5s"/>
+          <animate attributeName="y" values="11;8;11" dur="1.8s" repeatCount="indefinite" begin="0.5s"/>
+        </rect>
+      </g>
+    </svg>
+    <span class="logo-text">Wave<span>API</span></span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#hero">Home</a></li>
+    <li><a href="#features">Recursos</a></li>
+    <li><a href="#docs">Documentação</a></li>
+    <li><a href="#plans">Planos</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+  <a href="#plans" class="btn-cta">Começar Grátis</a>
+  <div class="nav-hamburger" onclick="toggleMenu()" id="hamburger">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section id="hero">
+  <div class="hero-bg">
+    <div class="hero-grid"></div>
+    <div class="hero-glow-1"></div>
+    <div class="hero-glow-2"></div>
+    <svg style="position:absolute;bottom:0;left:0;right:0;width:100%;opacity:0.06" viewBox="0 0 1200 120" preserveAspectRatio="none">
+      <path fill="#00D4FF">
+        <animate attributeName="d"
+          values="M0,60 C200,100 400,20 600,60 C800,100 1000,20 1200,60 L1200,120 L0,120 Z;
+                  M0,60 C200,20 400,100 600,60 C800,20 1000,100 1200,60 L1200,120 L0,120 Z;
+                  M0,60 C200,100 400,20 600,60 C800,100 1000,20 1200,60 L1200,120 L0,120 Z"
+          dur="8s" repeatCount="indefinite"/>
+      </path>
+    </svg>
+  </div>
+  <div class="hero-content container">
+    <div class="hero-left">
+      <div class="hero-badge">
+        <div class="badge-dot"></div>
+        🎵 +10.000 músicas disponíveis
+      </div>
+      <h1 class="hero-title">
+        A API de músicas<br>
+        <span class="highlight">feita para o MTA:SA</span>
+      </h1>
+      <p class="hero-subtitle">
+        Busque qualquer música e obtenha o link formatado com ou sem acento grave — pronto para usar direto no seu servidor MTA:SA. Simples, rápido e gratuito para começar.
+      </p>
+      <div class="hero-actions">
+        <a href="#docs" class="btn-primary">Ver Documentação</a>
+        <a href="#demo" class="btn-secondary">Testar Grátis →</a>
+      </div>
+    </div>
+    <div class="hero-code">
+      <div class="code-window">
+        <div class="code-header">
+          <div class="code-dot red"></div>
+          <div class="code-dot yellow"></div>
+          <div class="code-dot green"></div>
+          <span class="code-title">wave-example.js</span>
+        </div>
+        <div class="code-body">
+          <span class="c-comment">// Buscar música na Wave API</span><br>
+          <span class="c-keyword">const</span> <span class="c-white">response</span> = <span class="c-keyword">await</span> <span class="c-func">fetch</span>(<br>
+          &nbsp;&nbsp;<span class="c-string">'https://waveapi.fun/search?q=Eminem'</span>,<br>
+          &nbsp;&nbsp;{ headers: { <span class="c-string">'Authorization'</span>: <span class="c-string">'Bearer TOKEN'</span> } }<br>
+          );<br>
+          <br>
+          <span class="c-keyword">const</span> <span class="c-white">data</span> = <span class="c-keyword">await</span> response.<span class="c-func">json</span>();<br>
+          <br>
+          <span class="c-comment">// Resposta com links prontos</span><br>
+          <span class="c-white">{</span><br>
+          &nbsp;&nbsp;<span class="c-cyan">"id"</span>: <span class="c-string">"eminem_001"</span>,<br>
+          &nbsp;&nbsp;<span class="c-cyan">"title"</span>: <span class="c-string">"Lose Yourself"</span>,<br>
+          &nbsp;&nbsp;<span class="c-cyan">"artist"</span>: <span class="c-string">"Eminem"</span>,<br>
+          &nbsp;&nbsp;<span class="c-cyan">"url_with_grave"</span>: <span class="c-green">"&#96;https://..."</span>,<br>
+          &nbsp;&nbsp;<span class="c-cyan">"url_clean"</span>: <span class="c-string">"https://..."</span>,<br>
+          &nbsp;&nbsp;<span class="c-cyan">"duration"</span>: <span class="c-num">326</span><br>
+          <span class="c-white">}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ HOW IT WORKS ═══ -->
+<section id="how">
+  <div class="container">
+    <p class="section-label">Como funciona</p>
+    <h2 class="section-title">Três passos,<br>pronto para jogar</h2>
+    <p class="section-subtitle">Integre a Wave API ao seu servidor MTA:SA em minutos, sem complicações.</p>
+    <div class="how-grid">
+
+      <!-- Card 1 -->
+      <div class="how-card" data-delay="0">
+        <div class="how-step">// 01</div>
+        <svg class="how-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="28" cy="28" r="18" stroke="#00D4FF" stroke-width="2.5" fill="none" opacity="0.3"/>
+          <circle cx="28" cy="28" r="18" stroke="#00D4FF" stroke-width="2.5" fill="none" stroke-dasharray="4 3" opacity="0.6">
+            <animateTransform attributeName="transform" type="rotate" from="0 28 28" to="360 28 28" dur="12s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="28" cy="28" r="10" fill="rgba(0,212,255,0.1)" stroke="#00D4FF" stroke-width="1.5"/>
+          <line x1="22" y1="28" x2="34" y2="28" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+          <line x1="28" y1="22" x2="28" y2="34" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+          <line x1="41" y1="41" x2="52" y2="52" stroke="#00D4FF" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="52" cy="52" r="3" fill="#00FFFF" opacity="0.8">
+            <animate attributeName="r" values="2;4;2" dur="2s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        <h3>Busque qualquer música</h3>
+        <p>Use o endpoint <code style="color:var(--cyan);font-family:var(--font-mono)">/search</code> com o nome ou artista. Nossa base conta com mais de 10.000 faixas prontas.</p>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="how-card" data-delay="150">
+        <div class="how-step">// 02</div>
+        <svg class="how-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="16" width="36" height="28" rx="6" fill="rgba(0,212,255,0.08)" stroke="#00D4FF" stroke-width="2"/>
+          <rect x="12" y="22" width="20" height="3" rx="1.5" fill="#00D4FF" opacity="0.5"/>
+          <rect x="12" y="29" width="28" height="3" rx="1.5" fill="#00D4FF" opacity="0.7"/>
+          <rect x="12" y="36" width="16" height="3" rx="1.5" fill="#00FFFF" opacity="0.9">
+            <animate attributeName="width" values="16;24;16" dur="2.5s" repeatCount="indefinite"/>
+          </rect>
+          <circle cx="50" cy="18" r="12" fill="rgba(0,212,255,0.1)" stroke="#00D4FF" stroke-width="2"/>
+          <path d="M45 18 L50 23 L57 14" stroke="#00FFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <h3>Copie o link formatado</h3>
+        <p>Receba o link com acento grave (<code style="color:var(--cyan);font-family:var(--font-mono)">url_with_grave</code>) já formatado para o MTA:SA, ou a versão limpa sem caracteres especiais.</p>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="how-card" data-delay="300">
+        <div class="how-step">// 03</div>
+        <svg class="how-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="28" width="52" height="26" rx="6" fill="rgba(0,212,255,0.08)" stroke="#00D4FF" stroke-width="2"/>
+          <path d="M14 28 L14 20 Q14 12 22 10 L42 10 Q50 10 50 18 L50 28" stroke="#00D4FF" stroke-width="2" fill="none"/>
+          <circle cx="26" cy="20" r="5" fill="rgba(0,212,255,0.15)" stroke="#00D4FF" stroke-width="1.5"/>
+          <circle cx="38" cy="20" r="5" fill="rgba(0,212,255,0.15)" stroke="#00D4FF" stroke-width="1.5"/>
+          <rect x="16" y="36" width="12" height="8" rx="3" fill="rgba(0,212,255,0.15)" stroke="#00D4FF" stroke-width="1.5"/>
+          <rect x="36" y="36" width="12" height="8" rx="3" fill="rgba(0,212,255,0.15)" stroke="#00D4FF" stroke-width="1.5"/>
+          <path d="M16 28 L8 34" stroke="#00D4FF" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M48 28 L56 34" stroke="#00D4FF" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="32" cy="44" r="4" fill="#00FFFF" opacity="0.9">
+            <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        <h3>Use direto no jogo</h3>
+        <p>Cole o link no seu script Lua. A função <code style="color:var(--cyan);font-family:var(--font-mono)">playSound()</code> do MTA:SA aceita o link com grave nativamente.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FEATURES ═══ -->
+<section id="features">
+  <div class="container">
+    <p class="section-label">Recursos</p>
+    <h2 class="section-title">Tudo que você precisa,<br>nada que você não usa</h2>
+    <p class="section-subtitle">Desenvolvida especificamente para o ecossistema MTA:SA, com atenção a cada detalhe.</p>
+    <div class="features-grid">
+
+      <div class="feature-card" data-delay="0">
+        <svg class="feature-icon" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="rgba(0,212,255,0.08)"/>
+          <circle cx="21" cy="21" r="11" stroke="#00D4FF" stroke-width="2"/>
+          <line x1="29" y1="29" x2="38" y2="38" stroke="#00D4FF" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="17" y1="21" x2="25" y2="21" stroke="#00FFFF" stroke-width="2" stroke-linecap="round"/>
+          <line x1="21" y1="17" x2="21" y2="25" stroke="#00FFFF" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <h3>Busca por nome / artista</h3>
+        <p>Pesquise músicas por título, artista ou ambos combinados. Resultados relevantes e ordenados por popularidade.</p>
+      </div>
+
+      <div class="feature-card" data-delay="80">
+        <svg class="feature-icon" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="rgba(0,212,255,0.08)"/>
+          <rect x="8" y="16" width="26" height="18" rx="4" stroke="#00D4FF" stroke-width="2"/>
+          <text x="11" y="29" font-family="monospace" font-size="10" fill="#00FFFF">&#96;url</text>
+          <circle cx="38" cy="14" r="6" fill="rgba(0,212,255,0.15)" stroke="#00D4FF" stroke-width="1.5"/>
+          <path d="M35 14 L37.5 16.5 L42 11" stroke="#00FFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h3>Link com acento grave</h3>
+        <p>O campo <code style="color:var(--cyan);font-family:var(--font-mono);font-size:0.82rem">url_with_grave</code> retorna o link encapsulado com ` para uso direto nas funções do MTA:SA.</p>
+      </div>
+
+      <div class="feature-card" data-delay="160">
+        <svg class="feature-icon" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="rgba(0,212,255,0.08)"/>
+          <rect x="8" y="16" width="32" height="18" rx="4" stroke="#00D4FF" stroke-width="2"/>
+          <rect x="12" y="22" width="18" height="2.5" rx="1.25" fill="#00D4FF" opacity="0.5"/>
+          <rect x="12" y="28" width="12" height="2.5" rx="1.25" fill="#00FFFF"/>
+        </svg>
+        <h3>Link limpo sem grave</h3>
+        <p>Prefere sem formatação especial? <code style="color:var(--cyan);font-family:var(--font-mono);font-size:0.82rem">url_clean</code> entrega a URL pura, compatível com qualquer uso.</p>
+      </div>
+
+      <div class="feature-card" data-delay="240">
+        <svg class="feature-icon" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="rgba(0,212,255,0.08)"/>
+          <circle cx="24" cy="24" r="13" stroke="#00D4FF" stroke-width="2" stroke-dasharray="5 3" opacity="0.4">
+            <animateTransform attributeName="transform" type="rotate" from="0 24 24" to="360 24 24" dur="8s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="24" cy="24" r="7" fill="rgba(0,212,255,0.1)" stroke="#00D4FF" stroke-width="2"/>
+          <circle cx="24" cy="24" r="2.5" fill="#00FFFF"/>
+        </svg>
+        <h3>Alta disponibilidade</h3>
+        <p>Infraestrutura com 99.9% de uptime. Monitoramento 24/7 e redundância para que seu servidor nunca fique na mão.</p>
+      </div>
+
+      <div class="feature-card" data-delay="320">
+        <svg class="feature-icon" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="rgba(0,212,255,0.08)"/>
+          <path d="M10 34 L16 20 L22 28 L28 16 L34 24 L40 14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="40" cy="14" r="3" fill="#00FFFF">
+            <animate attributeName="r" values="2;4;2" dur="2s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        <h3>Resposta ultra-rápida</h3>
+        <p>Latência média abaixo de 100ms. CDN distribuída para garantir velocidade independente de onde seu servidor está.</p>
+      </div>
+
+      <div class="feature-card" data-delay="400">
+        <svg class="feature-icon" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="rgba(0,212,255,0.08)"/>
+          <rect x="10" y="10" width="14" height="28" rx="4" stroke="#00D4FF" stroke-width="2"/>
+          <rect x="28" y="18" width="10" height="20" rx="3" stroke="#00D4FF" stroke-width="2"/>
+          <line x1="13" y1="16" x2="21" y2="16" stroke="#00FFFF" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="13" y1="21" x2="21" y2="21" stroke="#00D4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+          <line x1="31" y1="24" x2="35" y2="24" stroke="#00FFFF" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <h3>Documentação clara</h3>
+        <p>Exemplos em JavaScript, Python e cURL. Swagger-like com exemplos reais de código para integrar em minutos.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DEMO ═══ -->
+<section id="demo">
+  <div class="container">
+    <p class="section-label">Demo interativa</p>
+    <h2 class="section-title">Teste agora mesmo</h2>
+    <p class="section-subtitle">Simule uma busca e veja a resposta da API em tempo real, incluindo os dois formatos de link.</p>
+    <div class="demo-container">
+      <div class="demo-search">
+        <div class="demo-input-wrap">
+          <svg class="demo-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="text" class="demo-input" id="demoInput" placeholder="Digite o nome de uma música ou artista..." value="Eminem - Lose Yourself">
+        </div>
+        <button class="demo-btn" onclick="runDemo()">Buscar →</button>
+      </div>
+      <div class="demo-results">
+        <div class="demo-panel">
+          <div class="demo-panel-header">
+            <span>GET /search</span>
+            <span class="status-ok">200 OK</span>
+          </div>
+          <div class="demo-panel-body" id="demoJson">
+            <span class="c-white">{</span><br>
+            &nbsp;&nbsp;<span class="c-cyan">"id"</span>: <span class="c-string">"em001"</span>,<br>
+            &nbsp;&nbsp;<span class="c-cyan">"title"</span>: <span class="c-string">"Lose Yourself"</span>,<br>
+            &nbsp;&nbsp;<span class="c-cyan">"artist"</span>: <span class="c-string">"Eminem"</span>,<br>
+            &nbsp;&nbsp;<span class="c-cyan">"duration"</span>: <span class="c-num">326</span>,<br>
+            &nbsp;&nbsp;<span class="c-cyan">"cover"</span>: <span class="c-string">"https://..."</span>,<br>
+            &nbsp;&nbsp;<span class="c-cyan">"url_with_grave"</span>: <span class="c-green">"&#96;https://waveapi.fun/s/em001&#96;"</span>,<br>
+            &nbsp;&nbsp;<span class="c-cyan">"url_clean"</span>: <span class="c-string">"https://waveapi.fun/s/em001"</span><br>
+            <span class="c-white">}</span>
+          </div>
+        </div>
+        <div class="demo-panel">
+          <div class="demo-panel-header">
+            <span>Links prontos</span>
+          </div>
+          <div style="padding:1.2rem">
+            <div class="link-row">
+              <div>
+                <div class="link-label">Com acento grave (MTA:SA)</div>
+                <div class="link-value" id="linkGrave">&#96;https://waveapi.fun/s/em001&#96;</div>
+              </div>
+              <button class="copy-btn" onclick="copyLink('linkGrave')">Copiar</button>
+            </div>
+            <div class="link-row" style="margin-top:1rem">
+              <div>
+                <div class="link-label">Link limpo</div>
+                <div class="link-value" id="linkClean">https://waveapi.fun/s/em001</div>
+              </div>
+              <button class="copy-btn" onclick="copyLink('linkClean')">Copiar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DOCS ═══ -->
+<section id="docs">
+  <div class="container">
+    <p class="section-label">Documentação</p>
+    <h2 class="section-title">Referência da API</h2>
+    <p class="section-subtitle">Endpoints documentados com exemplos reais. Integre em minutos.</p>
+    <div class="docs-layout">
+      <nav class="docs-nav">
+        <div class="docs-nav-title">Endpoints</div>
+        <ul class="docs-nav-list">
+          <li><a href="#ep-search" class="active">GET /search</a></li>
+          <li><a href="#ep-song">GET /song/{id}</a></li>
+          <li><a href="#ep-auth">Autenticação</a></li>
+          <li><a href="#ep-errors">Erros</a></li>
+        </ul>
+      </nav>
+      <div>
+
+        <!-- ENDPOINT: /search -->
+        <div class="endpoint-card" id="ep-search">
+          <div class="endpoint-header">
+            <span class="method-badge">GET</span>
+            <span class="endpoint-path">/search</span>
+          </div>
+          <div class="endpoint-body">
+            <p class="endpoint-desc">Busca músicas na base Wave API por nome, artista ou combinação. Retorna até 10 resultados por padrão. Suporta paginação.</p>
+
+            <table class="params-table">
+              <thead>
+                <tr>
+                  <th>Parâmetro</th>
+                  <th>Tipo</th>
+                  <th>Obrigatório</th>
+                  <th>Descrição</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="param-name">q</span></td>
+                  <td><span class="param-type">string</span></td>
+                  <td><span class="param-req">Obrigatório</span></td>
+                  <td style="color:var(--white-muted);font-size:0.83rem">Termo de busca (nome ou artista)</td>
+                </tr>
+                <tr>
+                  <td><span class="param-name">limit</span></td>
+                  <td><span class="param-type">integer</span></td>
+                  <td><span class="param-opt">Opcional</span></td>
+                  <td style="color:var(--white-muted);font-size:0.83rem">Máx. de resultados (padrão: 10)</td>
+                </tr>
+                <tr>
+                  <td><span class="param-name">page</span></td>
+                  <td><span class="param-type">integer</span></td>
+                  <td><span class="param-opt">Opcional</span></td>
+                  <td style="color:var(--white-muted);font-size:0.83rem">Número da página (padrão: 1)</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="background:#060a0f;border-radius:12px;overflow:hidden;border:1px solid var(--border-glass)">
+              <div class="code-tabs">
+                <button class="tab-btn active" onclick="switchTab(this, 'search-js')">JavaScript</button>
+                <button class="tab-btn" onclick="switchTab(this, 'search-py')">Python</button>
+                <button class="tab-btn" onclick="switchTab(this, 'search-curl')">cURL</button>
+              </div>
+              <div class="code-block active" id="search-js"><span class="c-keyword">const</span> <span class="c-white">res</span> = <span class="c-keyword">await</span> <span class="c-func">fetch</span>(<span class="c-string">'https://waveapi.fun/search?q=Eminem&limit=5'</span>, {<br>&nbsp;&nbsp;headers: {<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">'Authorization'</span>: <span class="c-string">'Bearer SEU_TOKEN'</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">'Content-Type'</span>: <span class="c-string">'application/json'</span><br>&nbsp;&nbsp;}<br>});<br><br><span class="c-keyword">const</span> <span class="c-white">data</span> = <span class="c-keyword">await</span> res.<span class="c-func">json</span>();<br>console.<span class="c-func">log</span>(data.results);</div>
+              <div class="code-block" id="search-py"><span class="c-keyword">import</span> requests<br><br>response = requests.<span class="c-func">get</span>(<br>&nbsp;&nbsp;<span class="c-string">'https://waveapi.fun/search'</span>,<br>&nbsp;&nbsp;params={<span class="c-string">'q'</span>: <span class="c-string">'Eminem'</span>, <span class="c-string">'limit'</span>: <span class="c-num">5</span>},<br>&nbsp;&nbsp;headers={<span class="c-string">'Authorization'</span>: <span class="c-string">'Bearer SEU_TOKEN'</span>}<br>)<br>data = response.<span class="c-func">json</span>()<br><span class="c-keyword">print</span>(data[<span class="c-string">'results'</span>])</div>
+              <div class="code-block" id="search-curl">curl -G https://waveapi.fun/search \<br>&nbsp;&nbsp;-d q=Eminem \<br>&nbsp;&nbsp;-d limit=5 \<br>&nbsp;&nbsp;-H "Authorization: Bearer SEU_TOKEN"</div>
+            </div>
+
+            <div class="response-block">
+              <div class="response-header">
+                <span style="color:var(--white-muted);font-size:0.82rem">Resposta</span>
+                <span class="status-badge s200">200 OK</span>
+                <span class="status-badge s401">401 Unauthorized</span>
+                <span class="status-badge s429">429 Too Many Requests</span>
+              </div>
+              <div class="code-block active" style="display:block;border-radius:0 0 12px 12px">
+<span class="c-white">{</span><br>
+&nbsp;&nbsp;<span class="c-cyan">"success"</span>: <span class="c-green">true</span>,<br>
+&nbsp;&nbsp;<span class="c-cyan">"total"</span>: <span class="c-num">47</span>,<br>
+&nbsp;&nbsp;<span class="c-cyan">"page"</span>: <span class="c-num">1</span>,<br>
+&nbsp;&nbsp;<span class="c-cyan">"results"</span>: [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-white">{</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">"id"</span>: <span class="c-string">"em001"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">"title"</span>: <span class="c-string">"Lose Yourself"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">"artist"</span>: <span class="c-string">"Eminem"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">"duration"</span>: <span class="c-num">326</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">"cover"</span>: <span class="c-string">"https://waveapi.fun/covers/em001.jpg"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">"url_with_grave"</span>: <span class="c-green">"&#96;https://waveapi.fun/s/em001&#96;"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-cyan">"url_clean"</span>: <span class="c-string">"https://waveapi.fun/s/em001"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-white">}</span><br>
+&nbsp;&nbsp;]<br>
+<span class="c-white">}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENDPOINT: /song/{id} -->
+        <div class="endpoint-card" id="ep-song">
+          <div class="endpoint-header">
+            <span class="method-badge">GET</span>
+            <span class="endpoint-path">/song/{id}</span>
+          </div>
+          <div class="endpoint-body">
+            <p class="endpoint-desc">Retorna os dados completos de uma música específica pelo seu identificador único.</p>
+            <table class="params-table">
+              <thead>
+                <tr><th>Parâmetro</th><th>Tipo</th><th>Obrigatório</th><th>Descrição</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="param-name">id</span></td>
+                  <td><span class="param-type">string</span></td>
+                  <td><span class="param-req">Obrigatório</span></td>
+                  <td style="color:var(--white-muted);font-size:0.83rem">ID único da música (path param)</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="margin-bottom:1.5rem">
+              <div style="background:rgba(0,212,255,0.06);border:1px solid var(--border-glass);border-radius:10px;padding:1rem 1.2rem">
+                <p style="font-size:0.82rem;color:var(--white-muted);margin-bottom:0.8rem;font-weight:600">Campos especiais MTA:SA</p>
+                <div style="display:flex;gap:0.8rem;flex-wrap:wrap">
+                  <div style="flex:1;min-width:200px;background:rgba(0,0,0,0.2);padding:0.8rem;border-radius:8px">
+                    <div style="font-family:var(--font-mono);color:var(--cyan);font-size:0.78rem;margin-bottom:0.3rem">url_with_grave</div>
+                    <div style="font-size:0.82rem;color:var(--white-muted)">Link encapsulado com acento grave (<code style="color:var(--cyan-bright)">&#96;</code>). Compatível com <code style="color:var(--white-dim);font-family:var(--font-mono);font-size:0.78rem">playSound()</code> no MTA:SA.</div>
+                  </div>
+                  <div style="flex:1;min-width:200px;background:rgba(0,0,0,0.2);padding:0.8rem;border-radius:8px">
+                    <div style="font-family:var(--font-mono);color:var(--cyan);font-size:0.78rem;margin-bottom:0.3rem">url_clean</div>
+                    <div style="font-size:0.82rem;color:var(--white-muted)">URL pura sem caracteres especiais. Ideal para armazenamento em banco de dados ou exibição na interface.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:#060a0f;border-radius:12px;overflow:hidden;border:1px solid var(--border-glass)">
+              <div class="code-tabs">
+                <button class="tab-btn active" onclick="switchTab(this,'song-js')">JavaScript</button>
+                <button class="tab-btn" onclick="switchTab(this,'song-py')">Python</button>
+                <button class="tab-btn" onclick="switchTab(this,'song-curl')">cURL</button>
+              </div>
+              <div class="code-block active" id="song-js"><span class="c-keyword">const</span> <span class="c-white">id</span> = <span class="c-string">'em001'</span>;<br><span class="c-keyword">const</span> <span class="c-white">res</span> = <span class="c-keyword">await</span> <span class="c-func">fetch</span>(<span class="c-string">`https://waveapi.fun/song/${id}`</span>, {<br>&nbsp;&nbsp;headers: { <span class="c-cyan">'Authorization'</span>: <span class="c-string">'Bearer SEU_TOKEN'</span> }<br>});<br><span class="c-keyword">const</span> <span class="c-white">song</span> = <span class="c-keyword">await</span> res.<span class="c-func">json</span>();</div>
+              <div class="code-block" id="song-py">response = requests.<span class="c-func">get</span>(<br>&nbsp;&nbsp;<span class="c-string">'https://waveapi.fun/song/em001'</span>,<br>&nbsp;&nbsp;headers={<span class="c-string">'Authorization'</span>: <span class="c-string">'Bearer SEU_TOKEN'</span>}<br>)<br>song = response.<span class="c-func">json</span>()</div>
+              <div class="code-block" id="song-curl">curl https://waveapi.fun/song/em001 \<br>&nbsp;&nbsp;-H "Authorization: Bearer SEU_TOKEN"</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AUTH -->
+        <div class="endpoint-card" id="ep-auth">
+          <div class="endpoint-header">
+            <span class="method-badge" style="background:rgba(255,166,87,0.15);color:#FFA657">AUTH</span>
+            <span class="endpoint-path">Autenticação</span>
+          </div>
+          <div class="endpoint-body">
+            <p class="endpoint-desc">A Wave API usa autenticação via Bearer Token. Inclua o header em todas as requisições autenticadas. No plano Free, algumas rotas funcionam sem autenticação com limite reduzido.</p>
+            <div class="code-block active" style="display:block;border-radius:10px;border:1px solid var(--border-glass)">
+Authorization: Bearer &lt;SEU_TOKEN&gt;
+            </div>
+            <p style="margin-top:1rem;font-size:0.85rem;color:var(--white-muted)">Obtenha seu token em <a href="#plans" style="color:var(--cyan)">waveapi.fun/dashboard</a> após criar sua conta.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PLANS ═══ -->
+<section id="plans">
+  <div class="container">
+    <p class="section-label" style="justify-content:center">Planos</p>
+    <h2 class="section-title" style="text-align:center">Comece grátis,<br>cresça no seu ritmo</h2>
+    <p class="section-subtitle" style="margin:0 auto 0">Sem cartão de crédito para o plano Free. Cancele quando quiser.</p>
+    <div class="plans-grid">
+
+      <div class="plan-card">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">R$0<span>/mês</span></div>
+        <p class="plan-desc">Para testar e projetos pessoais pequenos.</p>
+        <ul class="plan-features">
+          <li><span class="check">✦</span> 500 requisições/dia</li>
+          <li><span class="check">✦</span> Sem autenticação necessária</li>
+          <li><span class="check">✦</span> Busca por nome e artista</li>
+          <li><span class="check">✦</span> url_with_grave e url_clean</li>
+          <li style="color:rgba(232,244,248,0.3)"><span style="color:rgba(232,244,248,0.2)">✦</span> Suporte por email</li>
+          <li style="color:rgba(232,244,248,0.3)"><span style="color:rgba(232,244,248,0.2)">✦</span> SLA garantido</li>
+        </ul>
+        <a href="#" class="plan-btn plan-btn-outline">Começar Grátis</a>
+      </div>
+
+      <div class="plan-card featured">
+        <div class="plan-popular">Mais Popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">R$29<span>/mês</span></div>
+        <p class="plan-desc">Para servidores MTA:SA em crescimento.</p>
+        <ul class="plan-features">
+          <li><span class="check">✦</span> 10.000 requisições/dia</li>
+          <li><span class="check">✦</span> Token de autenticação</li>
+          <li><span class="check">✦</span> Busca avançada + filtros</li>
+          <li><span class="check">✦</span> url_with_grave e url_clean</li>
+          <li><span class="check">✦</span> Suporte prioritário 24h</li>
+          <li style="color:rgba(232,244,248,0.3)"><span style="color:rgba(232,244,248,0.2)">✦</span> SLA garantido</li>
+        </ul>
+        <a href="#" class="plan-btn plan-btn-filled">Assinar Pro</a>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-name">Ultra</div>
+        <div class="plan-price" style="font-size:2rem">Em breve</div>
+        <p class="plan-desc">Para redes de servidores e integrações avançadas.</p>
+        <ul class="plan-features">
+          <li><span class="check">✦</span> Requisições ilimitadas</li>
+          <li><span class="check">✦</span> Múltiplos tokens</li>
+          <li><span class="check">✦</span> Acesso antecipado a recursos</li>
+          <li><span class="check">✦</span> Webhook de eventos</li>
+          <li><span class="check">✦</span> Suporte dedicado (Discord)</li>
+          <li><span class="check">✦</span> SLA 99.9% garantido</li>
+        </ul>
+        <a href="#" class="plan-btn plan-btn-outline">Entrar na lista</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MTA:SA SECTION ═══ -->
+<section id="mta">
+  <div class="container">
+    <div class="mta-content">
+      <div>
+        <p class="section-label">MTA:SA</p>
+        <h2 class="section-title">Feita para o<br>universo MTA:SA</h2>
+        <p class="section-subtitle" style="margin-bottom:2rem">Multi Theft Auto: San Andreas tem um ecossistema de scripting Lua único. O campo <code style="color:var(--cyan);font-family:var(--font-mono)">url_with_grave</code> foi criado especificamente para funcionar com a função <code style="color:var(--cyan);font-family:var(--font-mono)">playSound()</code> sem nenhuma gambiarra.</p>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap">
+          <div style="background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:10px;padding:1rem 1.2rem;text-align:center">
+            <div style="font-size:1.5rem;font-weight:700;color:var(--cyan)">Lua 5.1</div>
+            <div style="font-size:0.78rem;color:var(--white-muted);margin-top:0.2rem">Compatível</div>
+          </div>
+          <div style="background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:10px;padding:1rem 1.2rem;text-align:center">
+            <div style="font-size:1.5rem;font-weight:700;color:var(--cyan)">MTA:SA</div>
+            <div style="font-size:0.78rem;color:var(--white-muted);margin-top:0.2rem">1.5.8+</div>
+          </div>
+          <div style="background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:10px;padding:1rem 1.2rem;text-align:center">
+            <div style="font-size:1.5rem;font-weight:700;color:var(--cyan)">0ms</div>
+            <div style="font-size:0.78rem;color:var(--white-muted);margin-top:0.2rem">overhead no Lua</div>
+          </div>
+        </div>
+      </div>
+      <div class="mta-art">
+        <div class="lua-window" style="width:100%">
+          <div class="lua-header">
+            <div class="code-dot red"></div>
+            <div class="code-dot yellow"></div>
+            <div class="code-dot green"></div>
+            <span class="lua-title">music_system.lua</span>
+            <span class="lua-tag">LUA</span>
+          </div>
+          <div class="lua-body">
+            <span class="c-comment">-- Wave API no MTA:SA</span><br>
+            <span class="c-comment">-- Busca e toca música via HTTP</span><br><br>
+            <span class="c-keyword">local</span> <span class="c-white">WaveAPI</span> = {}<br>
+            WaveAPI.<span class="c-cyan">token</span> = <span class="c-string">"SEU_TOKEN"</span><br>
+            WaveAPI.<span class="c-cyan">base</span> = <span class="c-string">"https://waveapi.fun"</span><br><br>
+            <span class="c-keyword">function</span> <span class="c-func">WaveAPI.search</span>(query, cb)<br>
+            &nbsp;&nbsp;<span class="c-keyword">local</span> url = WaveAPI.base<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;.. <span class="c-string">"/search?q="</span> .. query<br>
+            &nbsp;&nbsp;<span class="c-func">fetchRemote</span>(url, {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;headers = { Authorization =<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-string">"Bearer "</span> .. WaveAPI.token }<br>
+            &nbsp;&nbsp;}, <span class="c-keyword">function</span>(data)<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="c-keyword">local</span> song = <span class="c-func">fromJSON</span>(data)<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="c-comment">-- url_with_grave já tem os `</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="c-keyword">local</span> sound = <span class="c-func">playSound</span>(<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;song.results[<span class="c-num">1</span>].url_with_grave<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;)<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="c-func">cb</span>(sound)<br>
+            &nbsp;&nbsp;<span class="c-keyword">end</span>)<br>
+            <span class="c-keyword">end</span><br><br>
+            <span class="c-comment">-- Uso:</span><br>
+            <span class="c-func">WaveAPI.search</span>(<span class="c-string">"Eminem"</span>, <span class="c-keyword">function</span>(s)<br>
+            &nbsp;&nbsp;<span class="c-func">setSoundVolume</span>(s, <span class="c-num">0.8</span>)<br>
+            <span class="c-keyword">end</span>)
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ STATS ═══ -->
+<section id="stats">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <span class="stat-number" data-target="10000" data-suffix="K+">0</span>
+        <span class="stat-label">Músicas disponíveis</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" data-target="99" data-suffix=".9%">0</span>
+        <span class="stat-label">Uptime garantido</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" data-target="100" data-suffix="ms">0</span>
+        <span class="stat-label">Latência média</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" data-target="2500" data-suffix="+">0</span>
+        <span class="stat-label">Desenvolvedores</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ═══ -->
+<section id="faq">
+  <div class="container">
+    <p class="section-label" style="justify-content:center">FAQ</p>
+    <h2 class="section-title" style="text-align:center">Perguntas frequentes</h2>
+    <div class="faq-list">
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          O que é o acento grave e por que ele é necessário no MTA:SA?
+          <div class="faq-arrow">+</div>
+        </div>
+        <div class="faq-answer"><div class="faq-answer-inner">No MTA:SA, a função <code style="color:var(--cyan);font-family:var(--font-mono)">playSound()</code> requer que URLs de streams externos sejam passadas com um acento grave (&#96;) no início e no fim. O campo <code style="color:var(--cyan);font-family:var(--font-mono)">url_with_grave</code> da Wave API já entrega o link formatado corretamente, eliminando a necessidade de manipulação manual da string em Lua.</div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          Preciso de autenticação para usar a API?
+          <div class="faq-arrow">+</div>
+        </div>
+        <div class="faq-answer"><div class="faq-answer-inner">No plano Free, você pode fazer até 500 requisições por dia sem nenhum token. Para volumes maiores ou acesso a recursos avançados, você precisará de um token Bearer obtido no painel após criar uma conta.</div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          A Wave API funciona com outros jogos além do MTA:SA?
+          <div class="faq-arrow">+</div>
+        </div>
+        <div class="faq-answer"><div class="faq-answer-inner">Sim! Embora tenha sido otimizada para MTA:SA, qualquer aplicação pode usar a Wave API. O campo <code style="color:var(--cyan);font-family:var(--font-mono)">url_clean</code> retorna a URL sem formatação especial, compatível com qualquer linguagem e plataforma.</div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          Qual é o limite de requisições por segundo?
+          <div class="faq-arrow">+</div>
+        </div>
+        <div class="faq-answer"><div class="faq-answer-inner">O plano Free permite até 10 requisições por segundo. O plano Pro eleva esse limite para 50 req/s. Em caso de excesso, a API retorna status 429 (Too Many Requests) com o header <code style="color:var(--cyan);font-family:var(--font-mono)">Retry-After</code> indicando quando tentar novamente.</div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          Como faço para adicionar músicas à base de dados?
+          <div class="faq-arrow">+</div>
+        </div>
+        <div class="faq-answer"><div class="faq-answer-inner">Atualmente a curadoria é feita pela nossa equipe para garantir qualidade e disponibilidade dos links. Se precisar de uma música específica, abra uma solicitação no Discord e avaliaremos em até 48 horas. Usuários Pro têm prioridade nas solicitações.</div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          Os links expiram?
+          <div class="faq-arrow">+</div>
+        </div>
+        <div class="faq-answer"><div class="faq-answer-inner">Os IDs das músicas são permanentes — a URL <code style="color:var(--cyan);font-family:var(--font-mono)">/song/{id}</code> sempre retorna os dados atualizados. Recomendamos não armazenar os links diretamente pois podem ser atualizados; sempre busque via ID para garantir disponibilidade.</div></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="#" class="nav-logo" style="display:inline-flex">
+        <svg width="32" height="32" viewBox="0 0 36 36" fill="none">
+          <rect width="36" height="36" rx="10" fill="rgba(0,212,255,0.1)" stroke="rgba(0,212,255,0.3)" stroke-width="1"/>
+          <g transform="translate(4, 8)">
+            <rect x="0" y="7" width="3" height="10" rx="1.5" fill="#00D4FF" opacity="0.5"/>
+            <rect x="5" y="3" width="3" height="18" rx="1.5" fill="#00D4FF" opacity="0.75"/>
+            <rect x="10" y="1" width="3" height="22" rx="1.5" fill="#00FFFF"/>
+            <rect x="15" y="3" width="3" height="18" rx="1.5" fill="#00D4FF" opacity="0.75"/>
+            <rect x="20" y="7" width="3" height="10" rx="1.5" fill="#00D4FF" opacity="0.5"/>
+            <rect x="25" y="10" width="3" height="4" rx="1.5" fill="#00D4FF" opacity="0.35"/>
+          </g>
+        </svg>
+        <span style="font-weight:700;font-size:1.2rem">Wave<span style="color:var(--cyan)">API</span></span>
+      </a>
+      <p>A API de músicas feita para o ecossistema MTA:SA. Busque, copie e use no seu servidor em segundos.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Produto</h4>
+      <ul>
+        <li><a href="#features">Recursos</a></li>
+        <li><a href="#docs">Documentação</a></li>
+        <li><a href="#plans">Planos</a></li>
+        <li><a href="#demo">Demo</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Suporte</h4>
+      <ul>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#">Status da API</a></li>
+        <li><a href="#">Discord</a></li>
+        <li><a href="#">Changelog</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Termos de Uso</a></li>
+        <li><a href="#">Privacidade</a></li>
+        <li><a href="#">Cookies</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 Wave API — waveapi.fun. Todos os direitos reservados.</span>
+    <div class="social-links">
+      <!-- Discord -->
+      <a href="#" class="social-link" title="Discord">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057.1 18.084.113 18.11.132 18.12a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+        </svg>
+      </a>
+      <!-- GitHub -->
+      <a href="#" class="social-link" title="GitHub">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+      </a>
+      <!-- Twitter/X -->
+      <a href="#" class="social-link" title="Twitter">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══ SCRIPTS ═══ -->
+<script>
+// ─── NAVBAR SCROLL ───
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  navbar.classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// ─── MOBILE MENU ───
+function toggleMenu() {
+  const links = document.querySelector('.nav-links');
+  links.style.display = links.style.display === 'flex' ? 'none' : 'flex';
+  links.style.flexDirection = 'column';
+  links.style.position = 'absolute';
+  links.style.top = '70px';
+  links.style.left = '0';
+  links.style.right = '0';
+  links.style.background = 'rgba(8,11,16,0.97)';
+  links.style.padding = '1.5rem 2rem';
+  links.style.backdropFilter = 'blur(20px)';
+  links.style.borderBottom = '1px solid rgba(0,212,255,0.15)';
+}
+
+// ─── INTERSECTION OBSERVER ───
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const delay = entry.target.dataset.delay || 0;
+      setTimeout(() => {
+        entry.target.classList.add('visible');
+      }, parseInt(delay));
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.how-card, .feature-card, .plan-card, .endpoint-card').forEach(el => {
+  observer.observe(el);
+});
+
+// ─── STATS COUNTER ───
+const statsObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const el = entry.target;
+      const target = parseInt(el.dataset.target);
+      const suffix = el.dataset.suffix;
+      let current = 0;
+      const step = target / 60;
+      const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        if (suffix === '.9%') el.textContent = Math.floor(current) + '.9%';
+        else if (suffix === 'K+') el.textContent = Math.floor(current / 1000) + 'K+';
+        else if (suffix === 'ms') el.textContent = '<' + Math.floor(current) + 'ms';
+        else el.textContent = Math.floor(current) + suffix;
+        if (current >= target) clearInterval(timer);
+      }, 20);
+      statsObserver.unobserve(el);
+    }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('.stat-number').forEach(el => statsObserver.observe(el));
+
+// ─── CODE TABS ───
+function switchTab(btn, codeId) {
+  const container = btn.closest('[style*="border-radius"]') || btn.closest('div');
+  const allBtns = btn.parentElement.querySelectorAll('.tab-btn');
+  allBtns.forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const tabGroup = btn.closest('div');
+  const wrapper = btn.closest('[style*="060a0f"]') || btn.parentElement.parentElement;
+  const allCodes = wrapper.querySelectorAll('.code-block');
+  allCodes.forEach(c => c.classList.remove('active'));
+  const target = document.getElementById(codeId);
+  if (target) target.classList.add('active');
+}
+
+// ─── FAQ ACCORDION ───
+function toggleFaq(el) {
+  const item = el.parentElement;
+  const answer = item.querySelector('.faq-answer');
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i => {
+    i.classList.remove('open');
+    i.querySelector('.faq-answer').style.maxHeight = '0';
+  });
+  if (!isOpen) {
+    item.classList.add('open');
+    answer.style.maxHeight = answer.scrollHeight + 'px';
+  }
+}
+
+// ─── DEMO ───
+const demoData = {
+  'eminem': { id: 'em001', title: 'Lose Yourself', artist: 'Eminem', duration: 326 },
+  'drake': { id: 'dr002', title: 'Gods Plan', artist: 'Drake', duration: 198 },
+  'billie': { id: 'be003', title: 'Bad Guy', artist: 'Billie Eilish', duration: 194 },
+  'weeknd': { id: 'tw004', title: 'Blinding Lights', artist: 'The Weeknd', duration: 200 },
+};
+
+function runDemo() {
+  const q = document.getElementById('demoInput').value.toLowerCase();
+  let song = null;
+  for (const key in demoData) {
+    if (q.includes(key)) { song = demoData[key]; break; }
+  }
+  if (!song) song = { id: 'wv' + Math.floor(Math.random()*9000+1000), title: 'Music Found', artist: 'Artista', duration: Math.floor(Math.random()*200+100) };
+  const jsonEl = document.getElementById('demoJson');
+  const slug = song.id;
+  jsonEl.innerHTML = `
+    <span class="c-comment">// Resposta em ${Math.floor(Math.random()*80+20)}ms</span><br>
+    <span class="c-white">{</span><br>
+    &nbsp;&nbsp;<span class="c-cyan">"id"</span>: <span class="c-string">"${slug}"</span>,<br>
+    &nbsp;&nbsp;<span class="c-cyan">"title"</span>: <span class="c-string">"${song.title}"</span>,<br>
+    &nbsp;&nbsp;<span class="c-cyan">"artist"</span>: <span class="c-string">"${song.artist}"</span>,<br>
+    &nbsp;&nbsp;<span class="c-cyan">"duration"</span>: <span class="c-num">${song.duration}</span>,<br>
+    &nbsp;&nbsp;<span class="c-cyan">"cover"</span>: <span class="c-string">"https://waveapi.fun/covers/${slug}.jpg"</span>,<br>
+    &nbsp;&nbsp;<span class="c-cyan">"url_with_grave"</span>: <span class="c-green">"\`https://waveapi.fun/s/${slug}\`"</span>,<br>
+    &nbsp;&nbsp;<span class="c-cyan">"url_clean"</span>: <span class="c-string">"https://waveapi.fun/s/${slug}"</span><br>
+    <span class="c-white">}</span>
+  `;
+  document.getElementById('linkGrave').textContent = '`https://waveapi.fun/s/' + slug + '`';
+  document.getElementById('linkClean').textContent = 'https://waveapi.fun/s/' + slug;
+}
+
+// ─── COPY ───
+function copyLink(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector(`[onclick="copyLink('${id}')"]`);
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    btn.style.color = '#3FB950';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
+  });
+}
+
+// demo on enter
+document.getElementById('demoInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runDemo();
+});
+</script>
+</body>
+</html>
